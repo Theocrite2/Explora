@@ -133,3 +133,6 @@ cython_debug/
 # IDEs
 .vscode/
 .idea/
+
+.env
+.env.docker
