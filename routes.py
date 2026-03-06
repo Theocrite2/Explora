@@ -13,55 +13,41 @@ bp = Blueprint('main', __name__)
 
 @bp.route('/')
 def home():
-    return '''
-    <h1>Explora API is Running!</h1>
-    <p>Available endpoints:</p>
-    <ul>
-        <li><a href="/init_db">/init_db</a> - Create database tables (run once)</li>
-        <li><a href="/api/test">/api/test</a> - Test if API works</li>
-        <li><a href="/api/admin/add_dummy">/api/admin/add_dummy</a> - Add sample data</li>
-        <li><a href="/api/context?lat=48.85&lng=2.35">/api/context</a> - Get context for coordinates</li>
-    </ul>
-    '''
-
-
-@bp.route('/init_db')
-def init_db():
-    db.create_all()
-    return 'Database tables created!'
-
-
-@bp.route('/api/admin/add_dummy')
-def add_dummy_data():
-    try:
-        paris = Location(name='Notre-Dame de Paris', latitude=48.852968, longitude=2.349902)
-        history_snippet = ContextSnippet(
-            title='Medieval Marvel',
-            description='Construction began in 1163. A masterpiece of French Gothic architecture.',
-            type='history',
-            source_url='https://en.wikipedia.org/wiki/Notre-Dame_de_Paris',
-            location=paris
-        )
-        db.session.add(paris)
-        db.session.add(history_snippet)
-        db.session.commit()
-        return jsonify({'success': True, 'message': f'Added {paris.name} with snippet: {history_snippet.title}'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify({
+        "name": "Explora API",
+        "version": "1.0",
+        "status": "running",
+        "docs": "https://github.com/Theocrite2/Explora",
+        "endpoints": {
+            "public": ["GET /api/context?lat=&lng=&radius="],
+            "auth": ["POST /api/register", "POST /api/login"],
+            "user": ["GET /api/favorites", "POST /api/locations/<id>/favorite",
+                     "DELETE /api/locations/<id>/favorite", "POST /api/user/location",
+                     "GET /api/locations/<id>"],
+            "admin": ["POST /api/admin/locations", "GET /admin/users",
+                      "GET /admin/users/<id>", "PATCH /admin/users/<id>",
+                      "DELETE /admin/users/<id>"]
+        }
+    })
 
 
 @bp.route('/api/context')
 def get_context():
-    radius = request.args.get('radius', default=0.01, type=float)
     lat = request.args.get('lat', type=float)
     lng = request.args.get('lng', type=float)
+    radius = request.args.get('radius', default=1000, type=float)  # metres
 
     if lat is None or lng is None:
         return jsonify({'error': 'Provide lat and lng parameters'}), 400
 
+    user_point = from_shape(Point(lng, lat), srid=4326)
+
     locations = Location.query.filter(
-        Location.latitude.between(lat - radius, lat + radius),
-        Location.longitude.between(lng - radius, lng + radius)
+        ST_DWithin(
+            Location.coordinates,
+            user_point,
+            radius
+        )
     ).all()
 
     if not locations:
