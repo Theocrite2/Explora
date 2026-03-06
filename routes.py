@@ -114,7 +114,7 @@ def login():
 @bp.route('/api/locations/<int:location_id>/favorite', methods=['POST'])
 @jwt_required()
 def add_favorite(location_id):
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     location = Location.query.get(location_id)
 
@@ -132,7 +132,7 @@ def add_favorite(location_id):
 @bp.route('/api/locations/<int:location_id>/favorite', methods=['DELETE'])
 @jwt_required()
 def remove_favorite(location_id):
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     location = Location.query.get(location_id)
 
@@ -145,7 +145,7 @@ def remove_favorite(location_id):
 @bp.route('/api/favorites', methods=['GET'])
 @jwt_required()
 def get_favorites():
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
     favorites = []

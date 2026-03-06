@@ -1,13 +1,16 @@
+import os
 import pytest
 from app import app as flask_app
 from extensions import db
 from models import Location, ContextSnippet
+from geoalchemy2.shape import from_shape
+from shapely.geometry import Point
 
 
 @pytest.fixture
 def app():
     flask_app.config['TESTING'] = True
-    flask_app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('TEST_DATABASE_URL')
     with flask_app.app_context():
         db.create_all()
         yield flask_app
@@ -28,7 +31,12 @@ def test_get_context_empty(client):
 
 def test_get_context_with_data(client):
     with flask_app.app_context():
-        test_loc = Location(name='Test Monument', latitude=10.0, longitude=20.0)
+        test_loc = Location(
+            name='Test Monument',
+            latitude=10.0,
+            longitude=20.0,
+            coordinates=from_shape(Point(20.0, 10.0), srid=4326)
+        )
         test_snip = ContextSnippet(
             title='Test History',
             type='history',
@@ -39,9 +47,8 @@ def test_get_context_with_data(client):
         db.session.add(test_snip)
         db.session.commit()
 
-    response = client.get('/api/context?lat=10.0&lng=20.0&radius=0.1')
+    response = client.get('/api/context?lat=10.0&lng=20.0&radius=1000')
     assert response.status_code == 200
     data = response.get_json()
     assert len(data) == 1
     assert data[0]['name'] == 'Test Monument'
-
