@@ -145,7 +145,7 @@ The web process returns immediately after enqueueing. The image URL is populated
 ## Testing
 
 ```bash
-pytest tests.py -v
+pytest test_api.py -v
 ```
 
 ---
