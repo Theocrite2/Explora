@@ -27,6 +27,10 @@ jobs:
     env:
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/explora_test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/explora_test
+      CELERY_BROKER_URL: memory://
+      CELERY_RESULT_BACKEND: cache+memory://
+      JWT_SECRET_KEY: ci-test-jwt-secret
+      SECRET_KEY: ci-test-secret
 
     steps:
       - name: Checkout code
@@ -48,4 +52,4 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run pytest
-        run: pytest test_api.py -v
+        run: pytest test_api.py -v --timeout=60
