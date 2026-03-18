@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_jwt_extended import JWTManager
+from flasgger import Swagger
 from dotenv import load_dotenv
 import os
 from celery_app import make_celery
@@ -28,6 +29,39 @@ db.init_app(app)
 jwt = JWTManager(app)
 celery = make_celery(app)
 app.register_blueprint(bp)
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/apidocs",
+}
+
+swagger_template = {
+    "info": {
+        "title": "Explora API",
+        "description": "Location-based context and media API",
+        "version": "1.0",
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "JWT Bearer token. Format: **Bearer &lt;token&gt;**",
+        }
+    },
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 import tasks
 

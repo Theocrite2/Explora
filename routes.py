@@ -13,6 +13,15 @@ bp = Blueprint('main', __name__)
 
 @bp.route('/')
 def home():
+    """
+    Get API info
+    ---
+    tags:
+      - General
+    responses:
+      200:
+        description: API name, version, status, and available endpoints
+    """
     return jsonify({
         "name": "Explora API",
         "version": "1.0",
@@ -33,6 +42,34 @@ def home():
 
 @bp.route('/api/context')
 def get_context():
+    """
+    Get nearby locations with context snippets and media
+    ---
+    tags:
+      - Public
+    parameters:
+      - name: lat
+        in: query
+        type: number
+        required: true
+        description: Latitude of the user's position
+      - name: lng
+        in: query
+        type: number
+        required: true
+        description: Longitude of the user's position
+      - name: radius
+        in: query
+        type: number
+        required: false
+        default: 1000
+        description: Search radius in metres (default 1000)
+    responses:
+      200:
+        description: List of nearby locations with snippets and media
+      400:
+        description: Missing lat or lng query parameter
+    """
     lat = request.args.get('lat', type=float)
     lng = request.args.get('lng', type=float)
     radius = request.args.get('radius', default=1000, type=float)  # metres
@@ -80,6 +117,37 @@ def get_context():
 
 @bp.route('/api/register', methods=['POST'])
 def register():
+    """
+    Register a new user
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - email
+            - password
+          properties:
+            username:
+              type: string
+              example: john_doe
+            email:
+              type: string
+              example: john@example.com
+            password:
+              type: string
+              example: secret123
+    responses:
+      201:
+        description: User created successfully
+      400:
+        description: Missing fields, duplicate username, or duplicate email
+    """
     data = request.get_json()
     if not data or not data.get('username') or not data.get('email') or not data.get('password'):
         return jsonify({'error': 'Missing username, email or password'}), 400
@@ -99,6 +167,35 @@ def register():
 
 @bp.route('/api/login', methods=['POST'])
 def login():
+    """
+    Login and obtain a JWT access token
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - password
+          properties:
+            email:
+              type: string
+              example: john@example.com
+            password:
+              type: string
+              example: secret123
+    responses:
+      200:
+        description: JWT access token, user ID, and admin flag
+      400:
+        description: Missing email or password
+      401:
+        description: Invalid email or password
+    """
     data = request.get_json()
     if not data or not data.get('email') or not data.get('password'):
         return jsonify({'error': 'Missing email or password'}), 400
@@ -114,6 +211,25 @@ def login():
 @bp.route('/api/locations/<int:location_id>/favorite', methods=['POST'])
 @jwt_required()
 def add_favorite(location_id):
+    """
+    Add a location to the current user's favorites
+    ---
+    tags:
+      - User
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: location_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the location to favorite
+    responses:
+      200:
+        description: Location added to favorites (or already favorited)
+      404:
+        description: Location not found
+    """
     user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     location = Location.query.get(location_id)
@@ -132,6 +248,23 @@ def add_favorite(location_id):
 @bp.route('/api/locations/<int:location_id>/favorite', methods=['DELETE'])
 @jwt_required()
 def remove_favorite(location_id):
+    """
+    Remove a location from the current user's favorites
+    ---
+    tags:
+      - User
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: location_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the location to unfavorite
+    responses:
+      200:
+        description: Removed from favorites
+    """
     user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     location = Location.query.get(location_id)
@@ -145,6 +278,17 @@ def remove_favorite(location_id):
 @bp.route('/api/favorites', methods=['GET'])
 @jwt_required()
 def get_favorites():
+    """
+    Get the current user's favorited locations
+    ---
+    tags:
+      - User
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: List of favorited locations with id, name, latitude, and longitude
+    """
     user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
 
@@ -174,6 +318,41 @@ def admin_required(f):
 @jwt_required()
 @admin_required
 def create_location():
+    """
+    Create a new location (admin only)
+    ---
+    tags:
+      - Admin
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+            - latitude
+            - longitude
+          properties:
+            name:
+              type: string
+              example: Eiffel Tower
+            latitude:
+              type: number
+              example: 48.8584
+            longitude:
+              type: number
+              example: 2.2945
+    responses:
+      201:
+        description: Location created and image generation queued
+      400:
+        description: Missing name, latitude, or longitude
+      403:
+        description: Admin access required
+    """
     from tasks import generate_location_image
     data = request.get_json()
     if not data or not data.get('name') or not data.get('latitude') or not data.get('longitude'):
@@ -200,6 +379,30 @@ def create_location():
 @jwt_required()
 @admin_required
 def list_users():
+    """
+    List all users with pagination (admin only)
+    ---
+    tags:
+      - Admin
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: Page number
+      - name: per_page
+        in: query
+        type: integer
+        default: 10
+        description: Results per page
+    responses:
+      200:
+        description: Paginated list of users with total, pages, and navigation flags
+      403:
+        description: Admin access required
+    """
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     pagination = User.query.order_by(User.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
@@ -229,6 +432,29 @@ def list_users():
 @jwt_required()
 @admin_required
 def delete_user(user_id):
+    """
+    Delete a user by ID (admin only)
+    ---
+    tags:
+      - Admin
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the user to delete
+    responses:
+      200:
+        description: User deleted successfully
+      400:
+        description: Cannot delete yourself
+      403:
+        description: Admin access required
+      404:
+        description: User not found
+    """
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -246,6 +472,37 @@ def delete_user(user_id):
 @jwt_required()
 @admin_required
 def update_user(user_id):
+    """
+    Update a user's properties (admin only)
+    ---
+    tags:
+      - Admin
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the user to update
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            is_admin:
+              type: boolean
+              example: true
+    responses:
+      200:
+        description: Updated user object with id, username, email, and is_admin
+      400:
+        description: Cannot change your own admin status
+      403:
+        description: Admin access required
+      404:
+        description: User not found
+    """
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -265,6 +522,27 @@ def update_user(user_id):
 @jwt_required()
 @admin_required
 def get_user(user_id):
+    """
+    Get a single user by ID (admin only)
+    ---
+    tags:
+      - Admin
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the user to retrieve
+    responses:
+      200:
+        description: User object with id, username, email, and is_admin
+      403:
+        description: Admin access required
+      404:
+        description: User not found
+    """
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -275,6 +553,35 @@ def get_user(user_id):
 @bp.route('/api/user/location', methods=['POST'])
 @jwt_required()
 def update_location():
+    """
+    Submit user's current location to trigger nearby image generation
+    ---
+    tags:
+      - User
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - lat
+            - lng
+          properties:
+            lat:
+              type: number
+              example: 48.8584
+            lng:
+              type: number
+              example: 2.2945
+    responses:
+      200:
+        description: Location processed; returns nearby location count and any image generation tasks triggered
+      400:
+        description: Missing lat or lng
+    """
     from tasks import generate_location_image
     data = request.get_json()
     lat = data.get('lat')
