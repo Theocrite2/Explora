@@ -27,7 +27,13 @@ app.config['REPLICATE_API_TOKEN'] = os.getenv('REPLICATE_API_TOKEN')
 
 db.init_app(app)
 jwt = JWTManager(app)
-celery = make_celery(app)
+
+_testing = os.getenv('TESTING', 'false').lower() in ('1', 'true', 'yes')
+if _testing:
+    celery = None
+else:
+    celery = make_celery(app)
+
 app.register_blueprint(bp)
 
 swagger_config = {
@@ -63,7 +69,8 @@ swagger_template = {
 
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
-import tasks
+if not _testing:
+    import tasks
 
 
 
