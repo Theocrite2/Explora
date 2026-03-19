@@ -1,6 +1,15 @@
 import os
+import sys
 import pytest
-from app import app as flask_app
+from unittest.mock import MagicMock, patch
+
+# Prevent Celery from connecting at import time.
+# 1. Stub the tasks module so `import tasks` inside app.py is a no-op.
+sys.modules['tasks'] = MagicMock()
+# 2. Patch make_celery so it returns a mock instead of a real Celery instance.
+with patch('celery_app.make_celery', return_value=MagicMock()):
+    from app import app as flask_app
+
 from extensions import db
 from models import Location, ContextSnippet
 from geoalchemy2.shape import from_shape
