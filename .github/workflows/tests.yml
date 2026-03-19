@@ -50,5 +50,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Enable PostGIS extension
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d explora_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+
       - name: Run pytest
         run: pytest test_api.py -v --timeout=60
