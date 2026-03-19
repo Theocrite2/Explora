@@ -1,25 +1,37 @@
 import React from 'react'
+import { MapContainer, TileLayer } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 
 export default function MapBackground() {
   return (
     <div
-      className="fixed inset-0 z-0"
-      style={{ zIndex: 0 }}
       aria-hidden="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: 'none',
+      }}
     >
-      {/* World map image */}
-      <img
-        src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/World_map_-_low_resolution.svg/2560px-World_map_-_low_resolution.svg.png"
-        alt="World map background"
-        className="w-full h-full object-cover"
-        style={{ filter: 'brightness(0.6) saturate(0.4)' }}
-        draggable="false"
-      />
-      {/* Dark overlay */}
-      <div
-        className="absolute inset-0"
-        style={{ backgroundColor: 'rgba(0, 0, 0, 0.55)' }}
-      />
+      <MapContainer
+        center={[20, 0]}
+        zoom={2}
+        minZoom={2}
+        maxZoom={2}
+        zoomControl={false}
+        scrollWheelZoom={false}
+        dragging={false}
+        doubleClickZoom={false}
+        keyboard={false}
+        touchZoom={false}
+        attributionControl={false}
+        style={{ width: '100%', height: '100%' }}
+      >
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        />
+      </MapContainer>
     </div>
   )
 }

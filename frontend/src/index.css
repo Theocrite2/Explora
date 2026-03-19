@@ -6,8 +6,15 @@ html,
 body {
   height: 100%;
   overflow-x: hidden;
+  background-color: #0d1117; /* fallback while tiles load */
 }
 
 #root {
   min-height: 100%;
+  background: transparent;
+}
+
+/* Ensure Leaflet map tiles fill their container */
+.leaflet-container {
+  background: #0d1117;
 }
