@@ -11,8 +11,9 @@ load_dotenv()
 
 app = Flask(__name__)
 
+_testing = os.getenv('TESTING', 'false').lower() in ('1', 'true', 'yes')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('TEST_DATABASE_URL') if _testing else os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
@@ -28,7 +29,6 @@ app.config['REPLICATE_API_TOKEN'] = os.getenv('REPLICATE_API_TOKEN')
 db.init_app(app)
 jwt = JWTManager(app)
 
-_testing = os.getenv('TESTING', 'false').lower() in ('1', 'true', 'yes')
 if _testing:
     celery = None
 else:
