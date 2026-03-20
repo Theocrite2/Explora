@@ -1,0 +1,30 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Flask API",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["app.py"],
+      "port": 5000
+    },
+    {
+      "name": "Celery Worker",
+      "runtimeExecutable": "celery",
+      "runtimeArgs": ["-A", "app.celery", "worker", "--loglevel=info", "--pool=solo"]
+    },
+    {
+      "name": "Vite Frontend",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "C:\\Users\\manac\\PycharmProjects\\Explora\\frontend",
+      "port": 5174,
+      "autoPort": true
+    },
+    {
+      "name": "Docker Compose (full stack)",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "--build"],
+      "port": 5000
+    }
+  ]
+}
