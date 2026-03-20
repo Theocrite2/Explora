@@ -11,12 +11,6 @@ from shapely.geometry import Point
 def app():
     flask_app.config['TESTING'] = True
     flask_app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('TEST_DATABASE_URL')
-    flask_app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'connect_args': {
-            'connect_timeout': 10,
-            'options': '-c statement_timeout=10000'
-        }
-    }
     with flask_app.app_context():
         db.create_all()
         yield flask_app

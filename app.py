@@ -25,6 +25,14 @@ app.config['CLOUDINARY_API_KEY'] = os.getenv('CLOUDINARY_API_KEY')
 app.config['CLOUDINARY_API_SECRET'] = os.getenv('CLOUDINARY_API_SECRET')
 app.config['REPLICATE_API_TOKEN'] = os.getenv('REPLICATE_API_TOKEN')
 
+if _testing:
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'connect_args': {
+            'connect_timeout': 10,
+            'options': '-c statement_timeout=60000'
+        }
+    }
+
 
 db.init_app(app)
 jwt = JWTManager(app)
