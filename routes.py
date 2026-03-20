@@ -6,6 +6,7 @@ from models import User, Location, ContextSnippet, LocationMedia, user_favorites
 from geoalchemy2.functions import ST_DWithin
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
+import os
 
 
 bp = Blueprint('main', __name__)
@@ -353,7 +354,8 @@ def create_location():
       403:
         description: Admin access required
     """
-    from tasks import generate_location_image
+    if not os.getenv('TESTING'):
+        from tasks import generate_location_image
     data = request.get_json()
     if not data or not data.get('name') or not data.get('latitude') or not data.get('longitude'):
         return jsonify({'error': 'Missing name, latitude or longitude'}), 400
