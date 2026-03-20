@@ -32,7 +32,7 @@ def test_get_context_empty(client):
 def test_get_context_with_data(client):
     with flask_app.app_context():
         test_loc = Location(
-            name='Test Monument',
+            name='Test Monuments',
             latitude=10.0,
             longitude=20.0,
             coordinates=from_shape(Point(20.0, 10.0), srid=4326)
