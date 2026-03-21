@@ -5,6 +5,7 @@ from extensions import db
 from models import Location, ContextSnippet
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
+from sqlalchemy import text
 
 
 @pytest.fixture
@@ -14,7 +15,12 @@ def app():
     with flask_app.app_context():
         db.create_all()
         yield flask_app
-        db.drop_all()
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            conn.execute(text("DROP SCHEMA public CASCADE"))
+            conn.execute(text("CREATE SCHEMA public"))
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+            conn.commit()
 
 
 @pytest.fixture
@@ -32,7 +38,7 @@ def test_get_context_empty(client):
 def test_get_context_with_data(client):
     with flask_app.app_context():
         test_loc = Location(
-            name='Test Monuments',
+            name='Test Monument',
             latitude=10.0,
             longitude=20.0,
             coordinates=from_shape(Point(20.0, 10.0), srid=4326)
