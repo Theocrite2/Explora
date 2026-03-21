@@ -15,12 +15,6 @@ def app():
     with flask_app.app_context():
         db.create_all()
         yield flask_app
-        from sqlalchemy import text
-        with db.engine.connect() as conn:
-            conn.execute(text("DROP SCHEMA public CASCADE"))
-            conn.execute(text("CREATE SCHEMA public"))
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
-            conn.commit()
 
 
 @pytest.fixture
