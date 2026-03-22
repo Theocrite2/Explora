@@ -52,3 +52,14 @@ def test_get_context_with_data(client):
     data = response.get_json()
     assert len(data) == 1
     assert data[0]['name'] == 'Test Monument'
+
+
+def test_register(client):
+    response = client.post('/api/register', json={
+        'username': 'username123',
+        'email': 'email123',
+        'password': 'password123'
+    })
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data['message'] == 'User created successfully'
