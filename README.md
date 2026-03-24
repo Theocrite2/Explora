@@ -1,8 +1,14 @@
-# Explora API
+# Explora
 
-A deployed REST API that delivers historical, geopolitical, and cultural context for locations worldwide. Users discover nearby places, save favorites, and receive AI-generated imagery — all processed asynchronously in the background.
+A deployed full-stack application delivering historical, geopolitical, and cultural context for locations worldwide. Users discover nearby places, save favorites, and receive AI-generated imagery — all processed asynchronously in the background.
 
-**Live:** https://explora-production-b6ef.up.railway.app
+**Live API:** https://explora-production-b6ef.up.railway.app  
+**Frontend:** https://explora-seven.vercel.app  
+**API Docs:** https://explora-production-b6ef.up.railway.app/apidocs  
+**GitHub:** https://github.com/Theocrite2/Explora
+
+![Tests](https://github.com/Theocrite2/Explora/actions/workflows/tests.yml/badge.svg)
+![Playwright](https://github.com/Theocrite2/Explora/actions/workflows/playwright.yml/badge.svg)
 
 ---
 
@@ -24,52 +30,16 @@ A deployed REST API that delivers historical, geopolitical, and cultural context
 | Layer | Technology |
 |---|---|
 | Backend | Flask, Flask-SQLAlchemy, Flask-JWT-Extended, Flask-Bcrypt |
+| Frontend | React, Vite, Tailwind CSS |
 | Database | PostgreSQL + PostGIS (geospatial queries) |
 | Task Queue | Celery + Redis |
 | AI Image Generation | Replicate — black-forest-labs/flux-1.1-pro |
 | Media Storage | Cloudinary |
 | Containerization | Docker + Docker Compose |
-| Deployment | Railway |
-| Testing | pytest |
-
----
-
-## Local Development (Docker)
-
-**Prerequisites:** Docker Desktop
-
-```bash
-git clone https://github.com/Theocrite2/Explora.git
-cd Explora
-```
-
-Create a `.env.docker` file:
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@db:5432/explora
-CELERY_BROKER_URL=redis://redis:6379/0
-CELERY_RESULT_BACKEND=redis://redis:6379/0
-JWT_SECRET_KEY=your-jwt-secret
-SECRET_KEY=your-flask-secret
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
-REPLICATE_API_TOKEN=your-replicate-token
-```
-
-Start all services:
-
-```bash
-docker-compose up --build
-```
-
-Initialize the database:
-
-```bash
-docker-compose exec web flask init-db
-```
-
-The API is available at `http://localhost:5000`.
+| Deployment | Railway (API), Vercel (Frontend) |
+| Testing | pytest, Playwright |
+| CI/CD | GitHub Actions |
+| API Docs | Swagger / OpenAPI (Flasgger) |
 
 ---
 
@@ -112,7 +82,6 @@ The API is available at `http://localhost:5000`.
 ---
 
 ## Architecture
-
 ```
 POST /api/admin/locations
         │
@@ -144,9 +113,46 @@ The web process returns immediately after enqueueing. The image URL is populated
 
 ## Testing
 
+**API integration tests:**
 ```bash
 pytest test_api.py -v
 ```
+
+**E2E browser tests:**
+```bash
+cd frontend
+npx playwright test
+```
+
+---
+
+## Local Development (Docker)
+
+**Prerequisites:** Docker Desktop
+```bash
+git clone https://github.com/Theocrite2/Explora.git
+cd Explora
+```
+
+Create a `.env.docker` file:
+```env
+DATABASE_URL=postgresql://postgres:postgres@db:5432/explora
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+JWT_SECRET_KEY=your-jwt-secret
+SECRET_KEY=your-flask-secret
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+REPLICATE_API_TOKEN=your-replicate-token
+```
+
+Start all services:
+```bash
+docker-compose up --build
+```
+
+The API is available at `http://localhost:5000`.
 
 ---
 
