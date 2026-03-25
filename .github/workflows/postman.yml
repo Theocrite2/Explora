@@ -1,11 +1,19 @@
-name: Postman Tests
-on: [push]
+name: Postman
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
 jobs:
   newman:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
+
       - name: Install Newman
         run: npm install -g newman
-      - name: Run Postman tests
-        run: newman run postman/Explora.postman_collection.json
+
+      - name: Run Postman collection
+        run: newman run collection.json -e environment.json
