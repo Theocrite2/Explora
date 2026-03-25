@@ -9,6 +9,7 @@ A deployed full-stack application delivering historical, geopolitical, and cultu
 
 ![Tests](https://github.com/Theocrite2/Explora/actions/workflows/tests.yml/badge.svg)
 ![Playwright](https://github.com/Theocrite2/Explora/actions/workflows/playwright.yml/badge.svg)
+![Postman](https://github.com/Theocrite2/Explora/actions/workflows/postman.yml/badge.svg)
 
 ---
 
@@ -37,7 +38,7 @@ A deployed full-stack application delivering historical, geopolitical, and cultu
 | Media Storage | Cloudinary |
 | Containerization | Docker + Docker Compose |
 | Deployment | Railway (API), Vercel (Frontend) |
-| Testing | pytest, Playwright |
+| Testing | pytest, Playwright, Postman/Newman |
 | CI/CD | GitHub Actions |
 | API Docs | Swagger / OpenAPI (Flasgger) |
 
@@ -113,15 +114,20 @@ The web process returns immediately after enqueueing. The image URL is populated
 
 ## Testing
 
-**API integration tests:**
+**API integration tests (pytest):**
 ```bash
 pytest test_api.py -v
 ```
 
-**E2E browser tests:**
+**E2E browser tests (Playwright):**
 ```bash
 cd frontend
 npx playwright test
+```
+
+**API contract tests (Postman/Newman):**
+```bash
+newman run collection.json -e environment.json
 ```
 
 ---
