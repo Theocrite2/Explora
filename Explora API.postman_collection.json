@@ -1,0 +1,152 @@
+{
+  "info": {
+    "_postman_id": "b5d29a3f-9eb5-4c39-b153-a70c7fbc654c",
+    "name": "Explora API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "51723018"
+  },
+  "item": [
+    {
+      "name": "GET /",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://explora-production-b6ef.up.railway.app/",
+          "host": ["https://explora-production-b6ef.up.railway.app"],
+          "path": [""]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/context",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://explora-production-b6ef.up.railway.app/api/context?lat=48.85&lng=2.35",
+          "host": ["https://explora-production-b6ef.up.railway.app"],
+          "path": ["api", "context"],
+          "query": [
+            { "key": "lat", "value": "48.85" },
+            { "key": "lng", "value": "2.35" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"username\": \"testuser\",\r\n  \"email\": \"test@example.com\",\r\n  \"password\": \"testpass\"\r\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "https://explora-production-b6ef.up.railway.app/api/register",
+          "host": ["https://explora-production-b6ef.up.railway.app"],
+          "path": ["api", "register"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"token\", jsonData.access_token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"email\": \"test@example.com\",\r\n  \"password\": \"testpass\"\r\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "https://explora-production-b6ef.up.railway.app/api/login",
+          "host": ["https://explora-production-b6ef.up.railway.app"],
+          "path": ["api", "login"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET /api/favorites",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://explora-production-b6ef.up.railway.app/api/favorites",
+          "host": ["https://explora-production-b6ef.up.railway.app"],
+          "path": ["api", "favorites"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "POST /api/locations/:id/favorite",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://explora-production-b6ef.up.railway.app/api/locations/1/favorite",
+          "host": ["https://explora-production-b6ef.up.railway.app"],
+          "path": ["api", "locations", "1", "favorite"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "DELETE /api/locations/:id/favorite",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "https://explora-production-b6ef.up.railway.app/api/locations/1/favorite",
+          "host": ["https://explora-production-b6ef.up.railway.app"],
+          "path": ["api", "locations", "1", "favorite"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
