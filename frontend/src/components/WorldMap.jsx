@@ -4,6 +4,8 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { WORLD_IMAGE, worldPins } from '../data/worldPins'
 import DetailLayer from './DetailLayer'
+import { useAuth } from '../auth.jsx'
+import { useCommitments } from '../commitments.jsx'
 
 const W = WORLD_IMAGE.width
 const H = WORLD_IMAGE.height
@@ -41,24 +43,24 @@ function FitToImage() {
   return null
 }
 
-function Pins({ onSelect }) {
+function Pins({ onSelect, bySlug }) {
   const map = useMap()
-  const icon = useMemo(
-    () =>
+  const icons = useMemo(() => {
+    const make = (modifier) =>
       L.divIcon({
-        className: 'explora-pin',
+        className: `explora-pin${modifier ? ` explora-pin--${modifier}` : ''}`,
         html: '<span class="explora-pin__pulse"></span><span class="explora-pin__dot"></span>',
         iconSize: [28, 28],
         iconAnchor: [14, 14],
-      }),
-    [],
-  )
+      })
+    return { open: make(''), committed: make('committed'), uncovered: make('uncovered') }
+  }, [])
 
   return worldPins.map((pin) => (
     <Marker
       key={pin.id}
       position={toLatLng(pin)}
-      icon={icon}
+      icon={icons[bySlug[pin.id] ? bySlug[pin.id].status : 'open']}
       title={pin.name}
       alt={pin.name}
       eventHandlers={{
@@ -75,8 +77,18 @@ function Pins({ onSelect }) {
   ))
 }
 
-export default function WorldMap({ onExit }) {
+export default function WorldMap({ onExit, onRequireLogin }) {
+  const { user } = useAuth()
+  const { items, bySlug } = useCommitments()
   const [active, setActive] = useState(null) // { pin, origin } | null
+  const [panelOpen, setPanelOpen] = useState(false)
+
+  const openFromPanel = (slug) => {
+    const pin = worldPins.find((p) => p.id === slug)
+    if (!pin) return
+    setPanelOpen(false)
+    setActive({ pin, origin: { x: window.innerWidth / 2, y: window.innerHeight / 2 } })
+  }
 
   // Preload the regional maps so a pin opens instantly.
   useEffect(() => {
@@ -113,7 +125,7 @@ export default function WorldMap({ onExit }) {
         <ImageOverlay url={WORLD_IMAGE.src} bounds={BOUNDS} />
         <FitToImage />
         <ZoomControl position="bottomright" />
-        <Pins onSelect={(pin, origin) => setActive({ pin, origin })} />
+        <Pins bySlug={bySlug} onSelect={(pin, origin) => setActive({ pin, origin })} />
       </MapContainer>
 
       <button
@@ -130,6 +142,63 @@ export default function WorldMap({ onExit }) {
         ← Home
       </button>
 
+      {user && (
+        <button
+          onClick={() => setPanelOpen((v) => !v)}
+          data-testid="my-commitments-toggle"
+          className="absolute top-4 right-4 px-4 py-2 text-sm font-medium text-white rounded-lg transition-all duration-200 hover:bg-white hover:text-gray-900"
+          style={{
+            zIndex: 1000,
+            backgroundColor: 'rgba(10, 15, 30, 0.75)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255, 255, 255, 0.35)',
+          }}
+        >
+          My Commitments ({items.length})
+        </button>
+      )}
+
+      {user && panelOpen && (
+        <div
+          className="absolute top-16 right-4 w-80 max-w-[calc(100vw-2rem)] rounded-xl p-4"
+          data-testid="my-commitments-panel"
+          style={{
+            zIndex: 1000,
+            backgroundColor: 'rgba(10, 15, 30, 0.92)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+          }}
+        >
+          <h3 className="text-sm font-semibold text-white mb-3">My Commitments</h3>
+          {items.length === 0 ? (
+            <p className="text-xs text-gray-400">
+              Nothing yet. Open a pin and commit to a place you intend to go and uncover.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {items.map((c) => (
+                <li key={c.id}>
+                  <button
+                    onClick={() => openFromPanel(c.slug)}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-left text-sm text-white hover:bg-white/10"
+                  >
+                    <span>{c.name}</span>
+                    <span
+                      className="text-xs"
+                      style={{ color: c.status === 'uncovered' ? '#4ADE80' : '#4F8EF7' }}
+                    >
+                      {c.status === 'uncovered' ? 'Uncovered' : 'Committed'}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       <div
         className="absolute bottom-5 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-xs text-gray-200 pointer-events-none"
         style={{
@@ -142,7 +211,12 @@ export default function WorldMap({ onExit }) {
       </div>
 
       {active && (
-        <DetailLayer pin={active.pin} origin={active.origin} onClose={() => setActive(null)} />
+        <DetailLayer
+          pin={active.pin}
+          origin={active.origin}
+          onClose={() => setActive(null)}
+          onRequireLogin={onRequireLogin}
+        />
       )}
     </div>
   )

@@ -1,10 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useAuth } from '../auth.jsx'
+import { useCommitments } from '../commitments.jsx'
 
 const CLOSE_MS = 320
 
 // Full-screen regional map that opens from a pin. `origin` is the pin's position in
 // pixels inside the parent container, so the layer grows out of the pin.
-export default function DetailLayer({ pin, origin, onClose }) {
+export default function DetailLayer({ pin, origin, onClose, onRequireLogin }) {
+  const { user } = useAuth()
+  const { bySlug, busy, error, commit, setStatus, remove } = useCommitments()
+  const commitment = bySlug[pin.id]
   const [open, setOpen] = useState(false)
   const closeTimer = useRef(null)
 
@@ -68,6 +73,67 @@ export default function DetailLayer({ pin, origin, onClose }) {
             </p>
             <h2 className="text-2xl font-bold text-white mb-3">{pin.name}</h2>
             <p className="text-sm text-gray-300 leading-relaxed">{pin.summary}</p>
+          </div>
+
+          <div className="flex flex-col gap-2" data-testid="commit-actions">
+            {!user && (
+              <button
+                onClick={onRequireLogin}
+                data-testid="commit-login"
+                className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
+                style={{ backgroundColor: '#4F8EF7' }}
+              >
+                Log in to commit to this place
+              </button>
+            )}
+
+            {user && !commitment && (
+              <button
+                onClick={() => commit(pin.id)}
+                disabled={busy}
+                data-testid="commit-button"
+                className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: '#F5C451', color: '#2a1d05' }}
+              >
+                Commit to uncover this place
+              </button>
+            )}
+
+            {user && commitment && (
+              <>
+                <p
+                  className="text-sm font-semibold"
+                  data-testid="commit-status"
+                  style={{ color: commitment.status === 'uncovered' ? '#4ADE80' : '#4F8EF7' }}
+                >
+                  {commitment.status === 'uncovered' ? 'Uncovered ✓' : 'Committed ✓'}
+                </p>
+                <button
+                  onClick={() =>
+                    setStatus(commitment.id, commitment.status === 'uncovered' ? 'committed' : 'uncovered')
+                  }
+                  disabled={busy}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all hover:bg-white/10 disabled:opacity-50"
+                  style={{ border: '1px solid rgba(255, 255, 255, 0.3)' }}
+                >
+                  {commitment.status === 'uncovered' ? 'Mark as not yet uncovered' : 'Mark as uncovered'}
+                </button>
+                <button
+                  onClick={() => remove(commitment.id)}
+                  disabled={busy}
+                  data-testid="commit-remove"
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 transition-all hover:bg-white/10 disabled:opacity-50"
+                >
+                  Remove commitment
+                </button>
+              </>
+            )}
+
+            {error && (
+              <p className="text-xs" style={{ color: '#f87171' }} role="alert">
+                {error}
+              </p>
+            )}
           </div>
         </aside>
       </div>

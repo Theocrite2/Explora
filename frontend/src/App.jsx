@@ -27,7 +27,7 @@ export default function App() {
           <InfoSection onEnterWorld={() => setView('world')} />
         </main>
       ) : (
-        <WorldMap onExit={() => setView('landing')} />
+        <WorldMap onExit={() => setView('landing')} onRequireLogin={openLogin} />
       )}
 
       {/* Auth modal — rendered conditionally */}

@@ -43,6 +43,23 @@ body {
   background: rgba(245, 196, 81, 0.55);
   animation: explora-pulse 2s ease-out infinite;
 }
+.explora-pin--committed .explora-pin__dot {
+  background: #4f8ef7;
+  border-color: #0b1b3a;
+  box-shadow: 0 0 0 2px rgba(79, 142, 247, 0.5), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+.explora-pin--committed .explora-pin__pulse {
+  background: rgba(79, 142, 247, 0.55);
+}
+.explora-pin--uncovered .explora-pin__dot {
+  background: #4ade80;
+  border-color: #052e16;
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.5), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+.explora-pin--uncovered .explora-pin__pulse {
+  animation: none;
+  opacity: 0;
+}
 @keyframes explora-pulse {
   0% {
     transform: scale(1);

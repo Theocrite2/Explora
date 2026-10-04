@@ -1,8 +1,9 @@
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 from functools import wraps
 from extensions import db
-from models import User, Location, ContextSnippet, LocationMedia, user_favorites
+from models import User, Location, ContextSnippet, LocationMedia, Commitment, COMMITMENT_STATUSES, user_favorites
 from geoalchemy2.functions import ST_DWithin
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
@@ -31,7 +32,9 @@ def home():
         "endpoints": {
             "public": ["GET /api/context?lat=&lng=&radius="],
             "auth": ["POST /api/register", "POST /api/login"],
-            "user": ["GET /api/favorites", "POST /api/locations/<id>/favorite",
+            "user": ["GET /api/commitments", "POST /api/commitments",
+                     "PATCH /api/commitments/<id>", "DELETE /api/commitments/<id>",
+                     "GET /api/favorites", "POST /api/locations/<id>/favorite",
                      "DELETE /api/locations/<id>/favorite", "POST /api/user/location",
                      "GET /api/locations/<id>"],
             "admin": ["POST /api/admin/locations", "GET /admin/users",
@@ -608,3 +611,182 @@ def update_location():
         'nearby_locations': len(nearby_locations),
         'generation_triggered_for': triggered
     })
+
+
+# ---------------------------------------------------------------- commitments
+
+def _serialize_commitment(c):
+    return {
+        'id': c.id,
+        'location_id': c.location_id,
+        'slug': c.location.slug,
+        'name': c.location.name,
+        'status': c.status,
+        'note': c.note,
+        'committed_at': c.committed_at.isoformat() if c.committed_at else None,
+        'uncovered_at': c.uncovered_at.isoformat() if c.uncovered_at else None,
+    }
+
+
+@bp.route('/api/commitments', methods=['GET'])
+@jwt_required()
+def list_commitments():
+    """
+    List the current user's commitments
+    ---
+    tags:
+      - Commitments
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Commitments of the authenticated user, newest first
+      401:
+        description: Missing or invalid token
+    """
+    user_id = int(get_jwt_identity())
+    rows = (Commitment.query.filter_by(user_id=user_id)
+            .order_by(Commitment.committed_at.desc(), Commitment.id.desc()).all())
+    return jsonify([_serialize_commitment(c) for c in rows])
+
+
+@bp.route('/api/commitments', methods=['POST'])
+@jwt_required()
+def create_commitment():
+    """
+    Commit to a place (idempotent)
+    ---
+    tags:
+      - Commitments
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            slug:
+              type: string
+              example: raja-ampat
+            location_id:
+              type: integer
+            note:
+              type: string
+    responses:
+      201:
+        description: Commitment created
+      200:
+        description: Already committed; existing commitment returned
+      400:
+        description: Neither slug nor location_id provided
+      401:
+        description: Missing or invalid token
+      404:
+        description: Location not found
+    """
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True) or {}
+    slug = data.get('slug')
+    location_id = data.get('location_id')
+    if not slug and location_id is None:
+        return jsonify({'msg': 'slug or location_id required'}), 400
+
+    loc = Location.query.filter_by(slug=slug).first() if slug else db.session.get(Location, location_id)
+    if loc is None:
+        return jsonify({'msg': 'Location not found'}), 404
+
+    existing = Commitment.query.filter_by(user_id=user_id, location_id=loc.id).first()
+    if existing:
+        return jsonify(_serialize_commitment(existing)), 200
+
+    c = Commitment(user_id=user_id, location_id=loc.id, note=data.get('note'))
+    db.session.add(c)
+    db.session.commit()
+    return jsonify(_serialize_commitment(c)), 201
+
+
+@bp.route('/api/commitments/<int:commitment_id>', methods=['PATCH'])
+@jwt_required()
+def update_commitment(commitment_id):
+    """
+    Update a commitment's status or note
+    ---
+    tags:
+      - Commitments
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: path
+        name: commitment_id
+        type: integer
+        required: true
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [committed, uncovered]
+            note:
+              type: string
+    responses:
+      200:
+        description: Updated commitment
+      400:
+        description: Invalid status
+      401:
+        description: Missing or invalid token
+      404:
+        description: Commitment not found (or not owned by the user)
+    """
+    user_id = int(get_jwt_identity())
+    c = Commitment.query.filter_by(id=commitment_id, user_id=user_id).first()
+    if c is None:
+        return jsonify({'msg': 'Commitment not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    if 'status' in data:
+        if data['status'] not in COMMITMENT_STATUSES:
+            return jsonify({'msg': 'status must be one of: ' + ', '.join(COMMITMENT_STATUSES)}), 400
+        c.status = data['status']
+        c.uncovered_at = datetime.now(timezone.utc).replace(tzinfo=None) if c.status == 'uncovered' else None
+    if 'note' in data:
+        c.note = data['note']
+    db.session.commit()
+    return jsonify(_serialize_commitment(c))
+
+
+@bp.route('/api/commitments/<int:commitment_id>', methods=['DELETE'])
+@jwt_required()
+def delete_commitment(commitment_id):
+    """
+    Remove a commitment
+    ---
+    tags:
+      - Commitments
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: path
+        name: commitment_id
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Commitment removed
+      401:
+        description: Missing or invalid token
+      404:
+        description: Commitment not found (or not owned by the user)
+    """
+    user_id = int(get_jwt_identity())
+    c = Commitment.query.filter_by(id=commitment_id, user_id=user_id).first()
+    if c is None:
+        return jsonify({'msg': 'Commitment not found'}), 404
+    db.session.delete(c)
+    db.session.commit()
+    return jsonify({'msg': 'Commitment removed'})

@@ -15,6 +15,10 @@ def app():
     with flask_app.app_context():
         db.create_all()
         yield flask_app
+        db.session.remove()
+        # Isolate tests from each other. Never drop tables on a non-test database.
+        if 'test' in (os.getenv('TEST_DATABASE_URL') or '').lower():
+            db.drop_all()
 
 
 @pytest.fixture
@@ -63,3 +67,67 @@ def test_register(client):
     assert response.status_code == 201
     data = response.get_json()
     assert data['message'] == 'User created successfully'
+
+# ---------------------------------------------------------------- commitments
+
+def _auth_header(client, username):
+    client.post('/api/register', json={'username': username, 'email': f'{username}@example.com', 'password': 'pw123456'})
+    r = client.post('/api/login', json={'email': f'{username}@example.com', 'password': 'pw123456'})
+    return {'Authorization': f"Bearer {r.get_json()['access_token']}"}
+
+
+def _make_location(app, slug):
+    from models import Location
+    from extensions import db
+    from geoalchemy2.shape import from_shape
+    from shapely.geometry import Point
+    with app.app_context():
+        loc = Location.query.filter_by(slug=slug).first()
+        if loc is None:
+            loc = Location(slug=slug, name=slug, latitude=-45.0, longitude=-170.0,
+                           coordinates=from_shape(Point(-170.0, -45.0), srid=4326))
+            db.session.add(loc)
+            db.session.commit()
+        return loc.id
+
+
+def test_commitments_require_auth(client):
+    assert client.get('/api/commitments').status_code == 401
+    assert client.post('/api/commitments', json={'slug': 'x'}).status_code == 401
+
+
+def test_commitment_lifecycle(app, client):
+    _make_location(app, 'test-commit-a')
+    h = _auth_header(client, 'commit_user_a')
+
+    r = client.post('/api/commitments', json={'slug': 'test-commit-a'}, headers=h)
+    assert r.status_code == 201
+    cid = r.get_json()['id']
+    assert r.get_json()['status'] == 'committed'
+
+    # idempotent
+    r2 = client.post('/api/commitments', json={'slug': 'test-commit-a'}, headers=h)
+    assert r2.status_code == 200 and r2.get_json()['id'] == cid
+
+    assert [c['id'] for c in client.get('/api/commitments', headers=h).get_json()] == [cid]
+
+    r = client.patch(f'/api/commitments/{cid}', json={'status': 'uncovered'}, headers=h)
+    assert r.status_code == 200 and r.get_json()['uncovered_at'] is not None
+    assert client.patch(f'/api/commitments/{cid}', json={'status': 'bogus'}, headers=h).status_code == 400
+
+    assert client.delete(f'/api/commitments/{cid}', headers=h).status_code == 200
+    assert client.get('/api/commitments', headers=h).get_json() == []
+
+
+def test_commitment_validation_and_ownership(app, client):
+    _make_location(app, 'test-commit-b')
+    owner = _auth_header(client, 'commit_owner_b')
+    other = _auth_header(client, 'commit_other_b')
+
+    assert client.post('/api/commitments', json={}, headers=owner).status_code == 400
+    assert client.post('/api/commitments', json={'slug': 'nope-nope'}, headers=owner).status_code == 404
+
+    cid = client.post('/api/commitments', json={'slug': 'test-commit-b'}, headers=owner).get_json()['id']
+    assert client.patch(f'/api/commitments/{cid}', json={'status': 'uncovered'}, headers=other).status_code == 404
+    assert client.delete(f'/api/commitments/{cid}', headers=other).status_code == 404
+    assert client.get('/api/commitments', headers=other).get_json() == []

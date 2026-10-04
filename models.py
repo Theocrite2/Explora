@@ -13,6 +13,7 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, default=False)
 
     favorites = db.relationship('Location', secondary='user_favorites', backref='favorited_by')
+    commitments = db.relationship('Commitment', backref='user', cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
@@ -29,6 +30,7 @@ user_favorites = db.Table('user_favorites',
 
 class Location(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(100), unique=True)
     name = db.Column(db.String(100))
     latitude = db.Column(db.Float, nullable=False)
     longitude = db.Column(db.Float, nullable=False)
@@ -59,3 +61,30 @@ class LocationMedia(db.Model):
     url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     location = db.relationship('Location', backref='media')
+
+
+COMMITMENT_STATUSES = ('committed', 'uncovered')
+
+
+class Commitment(db.Model):
+    """A place a user has committed to go to and uncover.
+
+    Association object between User and Location. Unlike the bare user_favorites
+    table it carries its own data: status, timestamps and an optional note.
+    """
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'location_id', name='uq_commitment_user_location'),
+        db.CheckConstraint("status IN ('committed', 'uncovered')", name='ck_commitment_status'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    location_id = db.Column(db.Integer, db.ForeignKey('location.id', ondelete='CASCADE'), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='committed')
+    note = db.Column(db.Text)
+    committed_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    uncovered_at = db.Column(db.DateTime)
+    location = db.relationship('Location', backref=db.backref('commitments', cascade='all, delete-orphan'))
+
+    def __repr__(self):
+        return f"Commitment(user={self.user_id}, location={self.location_id}, '{self.status}')"

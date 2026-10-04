@@ -5,10 +5,23 @@ export const API_BASE = 'https://explora-production-b6ef.up.railway.app/api'
 const STORAGE_KEY = 'explora_auth'
 const AuthContext = createContext(null)
 
+// True when the JWT's exp claim is in the past (or the token is unreadable).
+function isExpired(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now()
+  } catch {
+    return true
+  }
+}
+
 function readStored() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
+    const parsed = raw ? JSON.parse(raw) : null
+    if (parsed && parsed.token && !isExpired(parsed.token)) return parsed
+    if (parsed) window.localStorage.removeItem(STORAGE_KEY)
+    return null
   } catch {
     return null
   }

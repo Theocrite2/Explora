@@ -1,3 +1,4 @@
+from datetime import timedelta
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from flasgger import Swagger
@@ -17,6 +18,7 @@ _testing = os.getenv('TESTING', 'false').lower() in ('1', 'true', 'yes')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('TEST_DATABASE_URL') if _testing else os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=int(os.getenv('JWT_EXPIRES_HOURS', '12')))
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config['SQLALCHEMY_ECHO'] = False
 app.config['CELERY_BROKER_URL'] = os.getenv('CELERY_BROKER_URL')
