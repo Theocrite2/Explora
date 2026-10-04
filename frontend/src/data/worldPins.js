@@ -27,4 +27,14 @@ export const worldPins = [
     summary:
       'An archipelago off the northwest tip of New Guinea, made up of more than 1,500 small islands around four main ones: Waigeo, Batanta, Salawati and Misool. Its reefs hold some of the highest marine biodiversity recorded anywhere.',
   },
+  {
+    id: 'shangri-la-lijiang',
+    name: 'Shangri-La to Lijiang',
+    region: 'Yunnan, China',
+    x: 773,
+    y: 437,
+    detailImage: '/maps/yunnan-shangri-la-lijiang.webp',
+    summary:
+      "Northwest Yunnan, on the route between Shangri-La and Lijiang. The Jinsha River, the upper Yangtze, cuts Tiger Leaping Gorge here between Jade Dragon Snow Mountain and Haba Snow Mountain. Shangri-La's Tibetan monasteries sit at roughly 3,200 m, and Lijiang's old town, home to the Naxi people, is a UNESCO World Heritage site.",
+  },
 ]
