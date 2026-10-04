@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { API_BASE, useAuth } from './auth.jsx'
 
 const CommitmentsContext = createContext(null)
@@ -9,6 +9,9 @@ export function CommitmentsProvider({ children }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [justUncovered, setJustUncovered] = useState([]) // slugs uncovered by the latest check
+  const [position, setPosition] = useState(null) // { lat, lng, accuracy } | null
+  const [geoError, setGeoError] = useState(null)
+  const [distances, setDistances] = useState({}) // slug -> km, from the server
 
   // Authenticated request. A 401 means the token expired or was revoked: end the session.
   const request = useCallback(
@@ -81,44 +84,89 @@ export function CommitmentsProvider({ children }) {
     [request, run],
   )
 
-  // Automatic uncovering: while at least one commitment is still open, watch the device
-  // position and let the server decide (it checks the distance to the place). At most one
-  // check per minute. Denied or unavailable geolocation simply leaves commitments open.
+  // Position tracking, active while logged in. The device position is shown to the member;
+  // while a commitment is still open it is also sent to the server (at most once a minute),
+  // which decides whether the member is at the place and returns the distance in km.
   const hasOpen = items.some((c) => c.status === 'committed')
+  const hasOpenRef = useRef(hasOpen)
+  hasOpenRef.current = hasOpen
+  const lastCheckRef = useRef(0)
+  const positionRef = useRef(null)
+  const checkRef = useRef(() => {})
+
+  checkRef.current = ({ lat, lng }) => {
+    lastCheckRef.current = Date.now()
+    request('/commitments/verify', { method: 'POST', body: JSON.stringify({ lat, lng }) })
+      .then((res) => {
+        setItems(res.commitments)
+        setDistances(res.distances_km || {})
+        if (res.newly_uncovered.length) setJustUncovered(res.newly_uncovered)
+      })
+      .catch(() => {})
+  }
+
   useEffect(() => {
-    if (!token || !hasOpen || !('geolocation' in navigator)) return undefined
-    let lastCheck = 0
+    if (!token) {
+      setPosition(null)
+      positionRef.current = null
+      setGeoError(null)
+      setDistances({})
+      return undefined
+    }
+    if (!('geolocation' in navigator)) {
+      setGeoError('Geolocation is not available in this browser.')
+      return undefined
+    }
     let cancelled = false
+    lastCheckRef.current = 0
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        const now = Date.now()
-        if (now - lastCheck < 60_000) return
-        lastCheck = now
-        request('/commitments/verify', {
-          method: 'POST',
-          body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        })
-          .then((res) => {
-            if (cancelled) return
-            setItems(res.commitments)
-            if (res.newly_uncovered.length) setJustUncovered(res.newly_uncovered)
-          })
-          .catch(() => {})
+        const { latitude, longitude, accuracy } = pos.coords
+        setGeoError(null)
+        setPosition({ lat: latitude, lng: longitude, accuracy })
+        positionRef.current = { lat: latitude, lng: longitude }
+        if (hasOpenRef.current && Date.now() - lastCheckRef.current >= 60_000) {
+          checkRef.current({ lat: latitude, lng: longitude })
+        }
       },
-      () => {},
-      { enableHighAccuracy: false, maximumAge: 60_000, timeout: 30_000 },
+      (err) => {
+        if (!cancelled) {
+          setGeoError(
+            err.code === 1 ? 'Location permission denied.' : 'Your position could not be determined.',
+          )
+        }
+      },
+      { enableHighAccuracy: false, maximumAge: 30_000, timeout: 30_000 },
     )
     return () => {
       cancelled = true
       navigator.geolocation.clearWatch(watchId)
     }
-  }, [token, hasOpen, request])
+  }, [token, request])
+
+  // A newly created commitment gets its first distance at once, from the last known
+  // position, instead of waiting for the next position update.
+  useEffect(() => {
+    if (token && hasOpen && positionRef.current) checkRef.current(positionRef.current)
+  }, [token, hasOpen])
 
   const dismissUncovered = useCallback(() => setJustUncovered([]), [])
 
   const bySlug = useMemo(() => Object.fromEntries(items.map((c) => [c.slug, c])), [items])
 
-  const value = { items, bySlug, busy, error, commit, remove, justUncovered, dismissUncovered }
+  const value = {
+    items,
+    bySlug,
+    busy,
+    error,
+    commit,
+    remove,
+    justUncovered,
+    dismissUncovered,
+    position,
+    geoError,
+    distances,
+  }
   return <CommitmentsContext.Provider value={value}>{children}</CommitmentsContext.Provider>
 }
 

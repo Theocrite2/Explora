@@ -8,7 +8,8 @@ const CLOSE_MS = 320
 // pixels inside the parent container, so the layer grows out of the pin.
 export default function DetailLayer({ pin, origin, onClose, onRequireLogin }) {
   const { user } = useAuth()
-  const { bySlug, busy, error, commit, remove } = useCommitments()
+  const { items, bySlug, busy, error, commit, remove, distances } = useCommitments()
+  const otherActive = items.find((c) => c.status === 'committed' && c.slug !== pin.id)
   const commitment = bySlug[pin.id]
   const [open, setOpen] = useState(false)
   const closeTimer = useRef(null)
@@ -87,7 +88,14 @@ export default function DetailLayer({ pin, origin, onClose, onRequireLogin }) {
               </button>
             )}
 
-            {user && !commitment && (
+            {user && !commitment && otherActive && (
+              <p className="text-xs text-gray-300 leading-relaxed" data-testid="commit-blocked">
+                You are committed to <strong>{otherActive.name}</strong>. Uncover it or remove that
+                commitment before committing to another place.
+              </p>
+            )}
+
+            {user && !commitment && !otherActive && (
               <button
                 onClick={() => commit(pin.id)}
                 disabled={busy}
@@ -108,6 +116,11 @@ export default function DetailLayer({ pin, origin, onClose, onRequireLogin }) {
                 >
                   {commitment.status === 'uncovered' ? 'Uncovered ✓' : 'Committed ✓'}
                 </p>
+                {commitment.status === 'committed' && distances[pin.id] !== undefined && (
+                  <p className="text-sm text-white" data-testid="commit-distance">
+                    {Number(distances[pin.id]).toLocaleString('en', { maximumFractionDigits: 1 })} km from you
+                  </p>
+                )}
                 {commitment.status === 'committed' && (
                   <p className="text-xs text-gray-400 leading-relaxed">
                     This place is uncovered automatically when your device is detected there.

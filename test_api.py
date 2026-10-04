@@ -157,3 +157,36 @@ def test_commitment_uncovered_by_location(app, client):
 
 def test_verify_requires_auth(client):
     assert client.post('/api/commitments/verify', json={'lat': 0, 'lng': 0}).status_code == 401
+
+
+def test_one_active_commitment_at_a_time(app, client):
+    _make_location(app, 'test-commit-d1')
+    _make_location(app, 'test-commit-d2')
+    h = _auth_header(client, 'commit_user_d')
+
+    first = client.post('/api/commitments', json={'slug': 'test-commit-d1'}, headers=h)
+    assert first.status_code == 201
+    blocked = client.post('/api/commitments', json={'slug': 'test-commit-d2'}, headers=h)
+    assert blocked.status_code == 409 and blocked.get_json()['active']['slug'] == 'test-commit-d1'
+    # same place again stays idempotent
+    assert client.post('/api/commitments', json={'slug': 'test-commit-d1'}, headers=h).status_code == 200
+
+    # removing the active one frees the slot
+    client.delete(f"/api/commitments/{first.get_json()['id']}", headers=h)
+    assert client.post('/api/commitments', json={'slug': 'test-commit-d2'}, headers=h).status_code == 201
+
+    # an uncovered commitment no longer blocks a new one
+    client.post('/api/commitments/verify', json={'lat': -45.0, 'lng': -170.0}, headers=h)
+    assert client.post('/api/commitments', json={'slug': 'test-commit-d1'}, headers=h).status_code == 201
+
+
+def test_verify_returns_position_and_distance(app, client):
+    _make_location(app, 'test-commit-e')  # lat -45, lng -170
+    h = _auth_header(client, 'commit_user_e')
+    client.post('/api/commitments', json={'slug': 'test-commit-e'}, headers=h)
+
+    res = client.post('/api/commitments/verify', json={'lat': -44.0, 'lng': -170.0}, headers=h).get_json()
+    assert res['position'] == {'lat': -44.0, 'lng': -170.0}
+    assert 105 < res['distances_km']['test-commit-e'] < 117  # one degree of latitude is about 111 km
+    c = res['commitments'][0]
+    assert c['latitude'] == -45.0 and c['longitude'] == -170.0

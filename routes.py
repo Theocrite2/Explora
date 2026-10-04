@@ -6,7 +6,7 @@ from extensions import db
 from models import User, Location, ContextSnippet, LocationMedia, Commitment, user_favorites
 from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_DWithin
-from sqlalchemy import cast
+from sqlalchemy import cast, func
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
 import os
@@ -626,6 +626,8 @@ def _serialize_commitment(c):
         'location_id': c.location_id,
         'slug': c.location.slug,
         'name': c.location.name,
+        'latitude': c.location.latitude,
+        'longitude': c.location.longitude,
         'status': c.status,
         'note': c.note,
         'committed_at': c.committed_at.isoformat() if c.committed_at else None,
@@ -659,7 +661,7 @@ def list_commitments():
 @jwt_required()
 def create_commitment():
     """
-    Commit to a place (idempotent)
+    Commit to a place (idempotent, one active commitment at a time)
     ---
     tags:
       - Commitments
@@ -690,6 +692,8 @@ def create_commitment():
         description: Missing or invalid token
       404:
         description: Location not found
+      409:
+        description: The user already has an active (not yet uncovered) commitment to another place
     """
     user_id = int(get_jwt_identity())
     data = request.get_json(silent=True) or {}
@@ -705,6 +709,14 @@ def create_commitment():
     existing = Commitment.query.filter_by(user_id=user_id, location_id=loc.id).first()
     if existing:
         return jsonify(_serialize_commitment(existing)), 200
+
+    active = Commitment.query.filter_by(user_id=user_id, status='committed').first()
+    if active:
+        return jsonify({
+            'msg': f"You are already committed to {active.location.name}. "
+                   "Uncover it or remove that commitment before committing to another place.",
+            'active': _serialize_commitment(active),
+        }), 409
 
     c = Commitment(user_id=user_id, location_id=loc.id, note=data.get('note'))
     db.session.add(c)
@@ -781,7 +793,7 @@ def verify_commitments():
               example: 54.1
     responses:
       200:
-        description: All commitments of the user, plus the ones newly uncovered by this position
+        description: The user's commitments, the ones newly uncovered by this position, and the distance in km from this position to each committed place
       400:
         description: Missing or out-of-range lat/lng
       401:
@@ -812,8 +824,19 @@ def verify_commitments():
 
     rows = (Commitment.query.filter_by(user_id=user_id)
             .order_by(Commitment.committed_at.desc(), Commitment.id.desc()).all())
+    distances = {}
+    for c in rows:
+        if c.location.coordinates is None:
+            continue
+        meters = db.session.query(
+            func.ST_Distance(cast(Location.coordinates, Geography), cast(point, Geography))
+        ).filter(Location.id == c.location_id).scalar()
+        distances[c.location.slug] = round(meters / 1000, 1)
+
     return jsonify({
+        'position': {'lat': lat, 'lng': lng},
         'newly_uncovered': [c.location.slug for c in pending],
+        'distances_km': distances,
         'commitments': [_serialize_commitment(c) for c in rows],
     })
 

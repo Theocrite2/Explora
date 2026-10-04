@@ -69,8 +69,8 @@ A deployed full-stack application delivering historical, geopolitical, and cultu
 | POST | `/api/locations/<id>/favorite` | Add location to favorites |
 | DELETE | `/api/locations/<id>/favorite` | Remove location from favorites |
 | GET | `/api/commitments` | List the user's commitments |
-| POST | `/api/commitments` | Commit to a place by `slug` or `location_id` (idempotent) |
-| POST | `/api/commitments/verify` | Send `lat`/`lng`; commitments within `UNCOVER_RADIUS_M` (default 50 km) become `uncovered` |
+| POST | `/api/commitments` | Commit to a place by `slug` or `location_id` (idempotent; 409 while another commitment is still active) |
+| POST | `/api/commitments/verify` | Send `lat`/`lng`; commitments within `UNCOVER_RADIUS_M` (default 50 km) become `uncovered`; also returns the position and `distances_km` |
 | PATCH | `/api/commitments/<id>` | Update `note` |
 | DELETE | `/api/commitments/<id>` | Remove a commitment |
 | POST | `/api/user/location` | Submit coordinates — triggers AI image generation for nearby locations |

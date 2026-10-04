@@ -79,7 +79,8 @@ function Pins({ onSelect, bySlug }) {
 
 export default function WorldMap({ onExit, onRequireLogin }) {
   const { user } = useAuth()
-  const { items, bySlug, justUncovered, dismissUncovered } = useCommitments()
+  const { items, bySlug, justUncovered, dismissUncovered, position, geoError, distances } = useCommitments()
+  const active_ = items.find((c) => c.status === 'committed')
   const [active, setActive] = useState(null) // { pin, origin } | null
   const [panelOpen, setPanelOpen] = useState(false)
 
@@ -222,8 +223,41 @@ export default function WorldMap({ onExit, onRequireLogin }) {
         </div>
       )}
 
+      {user && (
+        <div
+          className="absolute bottom-5 left-4 px-4 py-3 rounded-xl text-xs text-gray-200"
+          data-testid="position-hud"
+          style={{
+            zIndex: 1000,
+            maxWidth: 'calc(100vw - 6rem)',
+            backgroundColor: 'rgba(10, 15, 30, 0.85)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+          }}
+        >
+          <p className="font-semibold text-white mb-1">Your position</p>
+          {position ? (
+            <p data-testid="position-coords" className="font-mono">
+              {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+            </p>
+          ) : (
+            <p className="text-gray-400">{geoError || 'Locating…'}</p>
+          )}
+          {active_ && (
+            <p className="mt-2" data-testid="position-distance">
+              <span style={{ color: '#4F8EF7' }}>{active_.name}</span>
+              {' · '}
+              {distances[active_.slug] !== undefined
+                ? `${Number(distances[active_.slug]).toLocaleString('en', { maximumFractionDigits: 1 })} km away`
+                : position
+                  ? 'calculating distance…'
+                  : 'distance unavailable'}
+            </p>
+          )}
+        </div>
+      )}
+
       <div
-        className="absolute bottom-5 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-xs text-gray-200 pointer-events-none"
+        className="absolute bottom-5 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-xs text-gray-200 pointer-events-none hidden lg:block"
         style={{
           zIndex: 1000,
           backgroundColor: 'rgba(10, 15, 30, 0.75)',
