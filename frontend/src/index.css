@@ -18,3 +18,64 @@ body {
 .leaflet-container {
   background: #0d1117;
 }
+
+/* World map pins */
+.explora-pin {
+  background: none;
+  border: none;
+}
+.explora-pin__dot,
+.explora-pin__pulse {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 9999px;
+}
+.explora-pin__dot {
+  background: #f5c451;
+  border: 2px solid #3a2a0a;
+  box-shadow: 0 0 0 2px rgba(245, 196, 81, 0.5), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+.explora-pin__pulse {
+  background: rgba(245, 196, 81, 0.55);
+  animation: explora-pulse 2s ease-out infinite;
+}
+@keyframes explora-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
+/* Regional map layer that opens from a pin */
+.explora-detail {
+  position: absolute;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(8, 12, 22, 0.97);
+  opacity: 0;
+  transform: scale(0.15);
+  transition: opacity 300ms ease, transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.explora-detail--open {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explora-pin__pulse {
+    animation: none;
+    opacity: 0.4;
+  }
+  .explora-detail {
+    transform: none;
+    transition: opacity 150ms ease;
+  }
+}

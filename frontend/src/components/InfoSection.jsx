@@ -21,7 +21,7 @@ const features = [
   },
 ]
 
-export default function InfoSection() {
+export default function InfoSection({ onEnterWorld }) {
   return (
     <section className="relative z-10 flex flex-col items-center px-6 pt-36 pb-24">
       {/* Hero text */}
@@ -52,16 +52,23 @@ export default function InfoSection() {
           historical snippets, and AI-generated media for any point on Earth.
         </p>
 
-        <div className="flex items-center justify-center gap-4 mt-8">
-          <a
-            href="https://explora-production-b6ef.up.railway.app/apidocs"
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex flex-wrap items-center justify-center gap-4 mt-8">
+          <button
+            onClick={onEnterWorld}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
             style={{
               backgroundColor: '#4F8EF7',
               boxShadow: '0 0 28px rgba(79, 142, 247, 0.4)',
             }}
+          >
+            Enter World 🌍
+          </button>
+          <a
+            href="https://explora-production-b6ef.up.railway.app/apidocs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium text-white transition-all duration-200 hover:bg-white/10"
+            style={{ border: '1px solid rgba(255,255,255,0.2)' }}
           >
             View API Docs
             <svg
