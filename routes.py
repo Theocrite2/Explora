@@ -3,14 +3,19 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 from functools import wraps
 from extensions import db
-from models import User, Location, ContextSnippet, LocationMedia, Commitment, COMMITMENT_STATUSES, user_favorites
+from models import User, Location, ContextSnippet, LocationMedia, Commitment, user_favorites
+from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_DWithin
+from sqlalchemy import cast
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
 import os
 
 
 bp = Blueprint('main', __name__)
+
+# A commitment counts as uncovered when the user is within this many meters of the place.
+UNCOVER_RADIUS_M = int(os.getenv('UNCOVER_RADIUS_M', '50000'))
 
 
 @bp.route('/')
@@ -33,7 +38,7 @@ def home():
             "public": ["GET /api/context?lat=&lng=&radius="],
             "auth": ["POST /api/register", "POST /api/login"],
             "user": ["GET /api/commitments", "POST /api/commitments",
-                     "PATCH /api/commitments/<id>", "DELETE /api/commitments/<id>",
+                     "POST /api/commitments/verify", "PATCH /api/commitments/<id>", "DELETE /api/commitments/<id>",
                      "GET /api/favorites", "POST /api/locations/<id>/favorite",
                      "DELETE /api/locations/<id>/favorite", "POST /api/user/location",
                      "GET /api/locations/<id>"],
@@ -711,7 +716,7 @@ def create_commitment():
 @jwt_required()
 def update_commitment(commitment_id):
     """
-    Update a commitment's status or note
+    Update a commitment's note (status is set only by location verification)
     ---
     tags:
       - Commitments
@@ -728,16 +733,11 @@ def update_commitment(commitment_id):
         schema:
           type: object
           properties:
-            status:
-              type: string
-              enum: [committed, uncovered]
             note:
               type: string
     responses:
       200:
         description: Updated commitment
-      400:
-        description: Invalid status
       401:
         description: Missing or invalid token
       404:
@@ -749,15 +749,73 @@ def update_commitment(commitment_id):
         return jsonify({'msg': 'Commitment not found'}), 404
 
     data = request.get_json(silent=True) or {}
-    if 'status' in data:
-        if data['status'] not in COMMITMENT_STATUSES:
-            return jsonify({'msg': 'status must be one of: ' + ', '.join(COMMITMENT_STATUSES)}), 400
-        c.status = data['status']
-        c.uncovered_at = datetime.now(timezone.utc).replace(tzinfo=None) if c.status == 'uncovered' else None
     if 'note' in data:
         c.note = data['note']
     db.session.commit()
     return jsonify(_serialize_commitment(c))
+
+
+@bp.route('/api/commitments/verify', methods=['POST'])
+@jwt_required()
+def verify_commitments():
+    """
+    Mark the user's commitments as uncovered when the reported position is at the place
+    ---
+    tags:
+      - Commitments
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [lat, lng]
+          properties:
+            lat:
+              type: number
+              example: 17.0
+            lng:
+              type: number
+              example: 54.1
+    responses:
+      200:
+        description: All commitments of the user, plus the ones newly uncovered by this position
+      400:
+        description: Missing or out-of-range lat/lng
+      401:
+        description: Missing or invalid token
+    """
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True) or {}
+    try:
+        lat = float(data.get('lat'))
+        lng = float(data.get('lng'))
+    except (TypeError, ValueError):
+        return jsonify({'msg': 'lat and lng must be numbers'}), 400
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return jsonify({'msg': 'lat/lng out of range'}), 400
+
+    point = from_shape(Point(lng, lat), srid=4326)
+    pending = (Commitment.query.join(Location, Commitment.location_id == Location.id)
+               .filter(Commitment.user_id == user_id, Commitment.status == 'committed',
+                       Location.coordinates.isnot(None),
+                       ST_DWithin(cast(Location.coordinates, Geography),
+                                  cast(point, Geography), UNCOVER_RADIUS_M))
+               .all())
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    for c in pending:
+        c.status = 'uncovered'
+        c.uncovered_at = now
+    db.session.commit()
+
+    rows = (Commitment.query.filter_by(user_id=user_id)
+            .order_by(Commitment.committed_at.desc(), Commitment.id.desc()).all())
+    return jsonify({
+        'newly_uncovered': [c.location.slug for c in pending],
+        'commitments': [_serialize_commitment(c) for c in rows],
+    })
 
 
 @bp.route('/api/commitments/<int:commitment_id>', methods=['DELETE'])

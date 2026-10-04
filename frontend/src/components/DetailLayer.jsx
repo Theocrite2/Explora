@@ -8,7 +8,7 @@ const CLOSE_MS = 320
 // pixels inside the parent container, so the layer grows out of the pin.
 export default function DetailLayer({ pin, origin, onClose, onRequireLogin }) {
   const { user } = useAuth()
-  const { bySlug, busy, error, commit, setStatus, remove } = useCommitments()
+  const { bySlug, busy, error, commit, remove } = useCommitments()
   const commitment = bySlug[pin.id]
   const [open, setOpen] = useState(false)
   const closeTimer = useRef(null)
@@ -108,16 +108,11 @@ export default function DetailLayer({ pin, origin, onClose, onRequireLogin }) {
                 >
                   {commitment.status === 'uncovered' ? 'Uncovered ✓' : 'Committed ✓'}
                 </p>
-                <button
-                  onClick={() =>
-                    setStatus(commitment.id, commitment.status === 'uncovered' ? 'committed' : 'uncovered')
-                  }
-                  disabled={busy}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all hover:bg-white/10 disabled:opacity-50"
-                  style={{ border: '1px solid rgba(255, 255, 255, 0.3)' }}
-                >
-                  {commitment.status === 'uncovered' ? 'Mark as not yet uncovered' : 'Mark as uncovered'}
-                </button>
+                {commitment.status === 'committed' && (
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    This place is uncovered automatically when your device is detected there.
+                  </p>
+                )}
                 <button
                   onClick={() => remove(commitment.id)}
                   disabled={busy}

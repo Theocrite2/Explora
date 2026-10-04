@@ -79,7 +79,7 @@ function Pins({ onSelect, bySlug }) {
 
 export default function WorldMap({ onExit, onRequireLogin }) {
   const { user } = useAuth()
-  const { items, bySlug } = useCommitments()
+  const { items, bySlug, justUncovered, dismissUncovered } = useCommitments()
   const [active, setActive] = useState(null) // { pin, origin } | null
   const [panelOpen, setPanelOpen] = useState(false)
 
@@ -196,6 +196,29 @@ export default function WorldMap({ onExit, onRequireLogin }) {
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {justUncovered.length > 0 && (
+        <div
+          className="absolute top-16 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-sm text-white flex items-center gap-4"
+          role="status"
+          data-testid="uncovered-toast"
+          style={{
+            zIndex: 1000,
+            backgroundColor: 'rgba(5, 46, 22, 0.92)',
+            border: '1px solid rgba(74, 222, 128, 0.6)',
+          }}
+        >
+          <span>
+            Uncovered:{' '}
+            {justUncovered
+              .map((slug) => (worldPins.find((p) => p.id === slug) || { name: slug }).name)
+              .join(', ')}
+          </span>
+          <button onClick={dismissUncovered} className="text-green-300 hover:text-white" aria-label="Dismiss">
+            ✕
+          </button>
         </div>
       )}
 

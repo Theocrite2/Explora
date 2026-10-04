@@ -8,6 +8,7 @@ export function CommitmentsProvider({ children }) {
   const [items, setItems] = useState([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [justUncovered, setJustUncovered] = useState([]) // slugs uncovered by the latest check
 
   // Authenticated request. A 401 means the token expired or was revoked: end the session.
   const request = useCallback(
@@ -71,15 +72,6 @@ export function CommitmentsProvider({ children }) {
     [request, run],
   )
 
-  const setStatus = useCallback(
-    (id, status) =>
-      run(async () => {
-        const c = await request(`/commitments/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })
-        setItems((prev) => prev.map((p) => (p.id === id ? c : p)))
-      }),
-    [request, run],
-  )
-
   const remove = useCallback(
     (id) =>
       run(async () => {
@@ -89,9 +81,44 @@ export function CommitmentsProvider({ children }) {
     [request, run],
   )
 
+  // Automatic uncovering: while at least one commitment is still open, watch the device
+  // position and let the server decide (it checks the distance to the place). At most one
+  // check per minute. Denied or unavailable geolocation simply leaves commitments open.
+  const hasOpen = items.some((c) => c.status === 'committed')
+  useEffect(() => {
+    if (!token || !hasOpen || !('geolocation' in navigator)) return undefined
+    let lastCheck = 0
+    let cancelled = false
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const now = Date.now()
+        if (now - lastCheck < 60_000) return
+        lastCheck = now
+        request('/commitments/verify', {
+          method: 'POST',
+          body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        })
+          .then((res) => {
+            if (cancelled) return
+            setItems(res.commitments)
+            if (res.newly_uncovered.length) setJustUncovered(res.newly_uncovered)
+          })
+          .catch(() => {})
+      },
+      () => {},
+      { enableHighAccuracy: false, maximumAge: 60_000, timeout: 30_000 },
+    )
+    return () => {
+      cancelled = true
+      navigator.geolocation.clearWatch(watchId)
+    }
+  }, [token, hasOpen, request])
+
+  const dismissUncovered = useCallback(() => setJustUncovered([]), [])
+
   const bySlug = useMemo(() => Object.fromEntries(items.map((c) => [c.slug, c])), [items])
 
-  const value = { items, bySlug, busy, error, commit, setStatus, remove }
+  const value = { items, bySlug, busy, error, commit, remove, justUncovered, dismissUncovered }
   return <CommitmentsContext.Provider value={value}>{children}</CommitmentsContext.Provider>
 }
 

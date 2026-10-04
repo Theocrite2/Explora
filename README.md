@@ -22,7 +22,7 @@ A deployed full-stack application delivering historical, geopolitical, and cultu
 - **AI image generation** — automatic image generation via Replicate (Flux-1.1-pro), stored on Cloudinary
 - **Async task queue** — Celery + Redis; image generation runs in the background without blocking the API
 - **Favorites** — users can save, remove, and list favorite locations
-- **Commitments** — members commit to places they intend to go and uncover, mark them uncovered, or remove them
+- **Commitments** — members commit to places they intend to go and uncover, are marked uncovered automatically when the device is detected at the place, or remove them
 - **Admin user management** — list, paginate, promote/demote, and delete users
 
 ---
@@ -70,7 +70,8 @@ A deployed full-stack application delivering historical, geopolitical, and cultu
 | DELETE | `/api/locations/<id>/favorite` | Remove location from favorites |
 | GET | `/api/commitments` | List the user's commitments |
 | POST | `/api/commitments` | Commit to a place by `slug` or `location_id` (idempotent) |
-| PATCH | `/api/commitments/<id>` | Set `status` (`committed`/`uncovered`) or `note` |
+| POST | `/api/commitments/verify` | Send `lat`/`lng`; commitments within `UNCOVER_RADIUS_M` (default 50 km) become `uncovered` |
+| PATCH | `/api/commitments/<id>` | Update `note` |
 | DELETE | `/api/commitments/<id>` | Remove a commitment |
 | POST | `/api/user/location` | Submit coordinates — triggers AI image generation for nearby locations |
 | GET | `/api/locations/<id>` | Get location details including generated image URL |

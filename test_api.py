@@ -111,9 +111,9 @@ def test_commitment_lifecycle(app, client):
 
     assert [c['id'] for c in client.get('/api/commitments', headers=h).get_json()] == [cid]
 
-    r = client.patch(f'/api/commitments/{cid}', json={'status': 'uncovered'}, headers=h)
-    assert r.status_code == 200 and r.get_json()['uncovered_at'] is not None
-    assert client.patch(f'/api/commitments/{cid}', json={'status': 'bogus'}, headers=h).status_code == 400
+    # status cannot be set by hand
+    r = client.patch(f'/api/commitments/{cid}', json={'status': 'uncovered', 'note': 'x'}, headers=h)
+    assert r.status_code == 200 and r.get_json()['status'] == 'committed' and r.get_json()['note'] == 'x'
 
     assert client.delete(f'/api/commitments/{cid}', headers=h).status_code == 200
     assert client.get('/api/commitments', headers=h).get_json() == []
@@ -128,6 +128,32 @@ def test_commitment_validation_and_ownership(app, client):
     assert client.post('/api/commitments', json={'slug': 'nope-nope'}, headers=owner).status_code == 404
 
     cid = client.post('/api/commitments', json={'slug': 'test-commit-b'}, headers=owner).get_json()['id']
-    assert client.patch(f'/api/commitments/{cid}', json={'status': 'uncovered'}, headers=other).status_code == 404
+    assert client.patch(f'/api/commitments/{cid}', json={'note': 'x'}, headers=other).status_code == 404
     assert client.delete(f'/api/commitments/{cid}', headers=other).status_code == 404
     assert client.get('/api/commitments', headers=other).get_json() == []
+
+
+def test_commitment_uncovered_by_location(app, client):
+    _make_location(app, 'test-commit-c')  # at lat -45, lng -170
+    h = _auth_header(client, 'commit_user_c')
+    cid = client.post('/api/commitments', json={'slug': 'test-commit-c'}, headers=h).get_json()['id']
+
+    assert client.post('/api/commitments/verify', json={'lat': 'x', 'lng': 1}, headers=h).status_code == 400
+    assert client.post('/api/commitments/verify', json={'lat': 95, 'lng': 1}, headers=h).status_code == 400
+
+    far = client.post('/api/commitments/verify', json={'lat': 48.85, 'lng': 2.35}, headers=h).get_json()
+    assert far['newly_uncovered'] == [] and far['commitments'][0]['status'] == 'committed'
+
+    near = client.post('/api/commitments/verify', json={'lat': -45.01, 'lng': -170.01}, headers=h).get_json()
+    assert near['newly_uncovered'] == ['test-commit-c']
+    c = near['commitments'][0]
+    assert c['id'] == cid and c['status'] == 'uncovered' and c['uncovered_at'] is not None
+
+    # other users' commitments are unaffected
+    h2 = _auth_header(client, 'commit_user_c2')
+    client.post('/api/commitments', json={'slug': 'test-commit-c'}, headers=h2)
+    assert client.get('/api/commitments', headers=h2).get_json()[0]['status'] == 'committed'
+
+
+def test_verify_requires_auth(client):
+    assert client.post('/api/commitments/verify', json={'lat': 0, 'lng': 0}).status_code == 401
