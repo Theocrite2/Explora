@@ -150,6 +150,28 @@ export function CommitmentsProvider({ children }) {
     if (token && hasOpen && positionRef.current) checkRef.current(positionRef.current)
   }, [token, hasOpen])
 
+  // Explicit request from a click. Browsers may hide an automatic prompt behind a small
+  // address-bar icon; a prompt triggered by a click is always shown in full.
+  const requestLocation = useCallback(() => {
+    if (!('geolocation' in navigator)) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords
+        setGeoError(null)
+        setPosition({ lat: latitude, lng: longitude, accuracy })
+        positionRef.current = { lat: latitude, lng: longitude }
+        if (hasOpenRef.current) checkRef.current({ lat: latitude, lng: longitude })
+      },
+      (err) =>
+        setGeoError(
+          err.code === 1
+            ? 'Location is blocked for this site. Allow it from the lock icon in the address bar, then reload.'
+            : 'Your position could not be determined.',
+        ),
+      { enableHighAccuracy: false, timeout: 30_000 },
+    )
+  }, [])
+
   const dismissUncovered = useCallback(() => setJustUncovered([]), [])
 
   const bySlug = useMemo(() => Object.fromEntries(items.map((c) => [c.slug, c])), [items])
@@ -166,6 +188,7 @@ export function CommitmentsProvider({ children }) {
     position,
     geoError,
     distances,
+    requestLocation,
   }
   return <CommitmentsContext.Provider value={value}>{children}</CommitmentsContext.Provider>
 }

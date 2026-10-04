@@ -79,7 +79,7 @@ function Pins({ onSelect, bySlug }) {
 
 export default function WorldMap({ onExit, onRequireLogin }) {
   const { user } = useAuth()
-  const { items, bySlug, justUncovered, dismissUncovered, position, geoError, distances } = useCommitments()
+  const { items, bySlug, justUncovered, dismissUncovered, position, geoError, distances, requestLocation } = useCommitments()
   const active_ = items.find((c) => c.status === 'committed')
   const [active, setActive] = useState(null) // { pin, origin } | null
   const [panelOpen, setPanelOpen] = useState(false)
@@ -240,7 +240,17 @@ export default function WorldMap({ onExit, onRequireLogin }) {
               {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
             </p>
           ) : (
-            <p className="text-gray-400">{geoError || 'Locating…'}</p>
+            <>
+              <p className="text-gray-400 mb-2">{geoError || 'Location not shared yet.'}</p>
+              <button
+                onClick={requestLocation}
+                data-testid="enable-location"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ backgroundColor: '#4F8EF7', color: 'white' }}
+              >
+                Share my location
+              </button>
+            </>
           )}
           {active_ && (
             <p className="mt-2" data-testid="position-distance">
