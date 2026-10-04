@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from flasgger import Swagger
+from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 from celery_app import make_celery
@@ -36,6 +37,16 @@ if _testing:
 
 db.init_app(app)
 jwt = JWTManager(app)
+
+_cors_origins = [
+    o.strip()
+    for o in os.getenv(
+        'CORS_ORIGINS',
+        'https://explora-seven.vercel.app,http://localhost:5173'
+    ).split(',')
+    if o.strip()
+]
+CORS(app, resources={r'/api/*': {'origins': _cors_origins}})
 
 if _testing:
     celery = None

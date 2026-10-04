@@ -26,7 +26,7 @@ export default function App() {
 
       {/* Auth modal — rendered conditionally */}
       {modalMode && (
-        <AuthModal mode={modalMode} onClose={closeModal} />
+        <AuthModal mode={modalMode} onClose={closeModal} onSwitchMode={setModalMode} />
       )}
     </>
   )

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
+import { API_BASE, useAuth } from '../auth.jsx'
 
-const API_BASE = 'https://explora-production-b6ef.up.railway.app/api'
-
-export default function AuthModal({ mode, onClose }) {
+export default function AuthModal({ mode, onClose, onSwitchMode }) {
+  const { saveSession } = useAuth()
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -47,16 +48,18 @@ export default function AuthModal({ mode, onClose }) {
 
     setLoading(true)
     try {
-      const endpoint = isLogin ? `${API_BASE}/login` : `${API_BASE}/register`
-      const res = await axios.post(endpoint, { email, password })
+      if (!isLogin) {
+        await axios.post(`${API_BASE}/register`, { username, email, password })
+      }
+      const res = await axios.post(`${API_BASE}/login`, { email, password })
+      saveSession(res.data, username || email)
       setMessage({
         type: 'success',
         text: isLogin
           ? 'Signed in successfully! Welcome back.'
-          : 'Account created successfully! You can now log in.',
+          : 'Account created successfully! You are now signed in.',
       })
-      // Optionally close after a short delay on success
-      setTimeout(() => onClose(), 1800)
+      setTimeout(() => onClose(), 1200)
     } catch (err) {
       const detail =
         err?.response?.data?.message ||
@@ -124,6 +127,31 @@ export default function AuthModal({ mode, onClose }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {!isLogin && (
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1.5" htmlFor="auth-username">
+                Username
+              </label>
+              <input
+                id="auth-username"
+                type="text"
+                required
+                minLength={2}
+                maxLength={80}
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="explorer"
+                className="w-full px-4 py-2.5 rounded-lg text-sm text-white placeholder-gray-500 outline-none transition-all duration-150 focus:ring-2"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  '--tw-ring-color': '#4F8EF7',
+                }}
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-medium text-gray-400 mb-1.5" htmlFor="auth-email">
               Email address
@@ -234,10 +262,11 @@ export default function AuthModal({ mode, onClose }) {
             style={{ color: '#4F8EF7' }}
             onClick={() => {
               setMessage(null)
+              setUsername('')
               setEmail('')
               setPassword('')
               setConfirmPassword('')
-              onClose()
+              onSwitchMode(isLogin ? 'signup' : 'login')
             }}
           >
             {isLogin ? 'Sign up' : 'Sign in'}

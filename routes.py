@@ -206,7 +206,7 @@ def login():
         return jsonify({'error': 'Invalid email or password'}), 401
 
     access_token = create_access_token(identity=str(user.id))
-    return jsonify({'access_token': access_token, 'user_id': user.id, 'is_admin': user.is_admin}), 200
+    return jsonify({'access_token': access_token, 'user_id': user.id, 'username': user.username, 'is_admin': user.is_admin}), 200
 
 
 @bp.route('/api/locations/<int:location_id>/favorite', methods=['POST'])
