@@ -190,3 +190,31 @@ def test_verify_returns_position_and_distance(app, client):
     assert 105 < res['distances_km']['test-commit-e'] < 117  # one degree of latitude is about 111 km
     c = res['commitments'][0]
     assert c['latitude'] == -45.0 and c['longitude'] == -170.0
+
+
+def test_arrival_returns_stored_image_and_never_generates(app, client, monkeypatch):
+    from models import LocationMedia
+    from extensions import db
+    loc_id = _make_location(app, 'test-commit-f')  # lat -45, lng -170
+    db.session.add(LocationMedia(location_id=loc_id, media_type='image', url='https://example.com/stored.jpg'))
+    db.session.commit()
+    h = _auth_header(client, 'commit_user_f')
+    created = client.post('/api/commitments', json={'slug': 'test-commit-f'}, headers=h).get_json()
+    assert created['image_url'] == 'https://example.com/stored.jpg'
+
+    import routes
+    monkeypatch.delenv('IMAGE_GENERATION_ENABLED', raising=False)
+    assert routes.image_generation_enabled() is False
+    res = client.post('/api/commitments/verify', json={'lat': -45.0, 'lng': -170.0}, headers=h).get_json()
+    assert res['newly_uncovered'] == ['test-commit-f']
+    assert res['commitments'][0]['image_url'] == 'https://example.com/stored.jpg'
+
+    # the old trigger endpoint creates nothing while generation is off
+    near = client.post('/api/user/location', json={'lat': -45.0, 'lng': -170.0}, headers=h).get_json()
+    assert near['generation_triggered_for'] == []
+
+
+def test_commitment_without_stored_image_has_none(app, client):
+    _make_location(app, 'test-commit-g')
+    h = _auth_header(client, 'commit_user_g')
+    assert client.post('/api/commitments', json={'slug': 'test-commit-g'}, headers=h).get_json()['image_url'] is None

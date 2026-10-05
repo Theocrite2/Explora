@@ -18,6 +18,11 @@ bp = Blueprint('main', __name__)
 UNCOVER_RADIUS_M = int(os.getenv('UNCOVER_RADIUS_M', '50000'))
 
 
+def image_generation_enabled():
+    """AI image generation is off unless IMAGE_GENERATION_ENABLED is set to true."""
+    return os.getenv('IMAGE_GENERATION_ENABLED', 'false').lower() in ('1', 'true', 'yes')
+
+
 @bp.route('/')
 def home():
     """
@@ -356,14 +361,12 @@ def create_location():
               example: 2.2945
     responses:
       201:
-        description: Location created and image generation queued
+        description: Location created (an image is queued only when IMAGE_GENERATION_ENABLED is true)
       400:
         description: Missing name, latitude, or longitude
       403:
         description: Admin access required
     """
-    if not os.getenv('TESTING'):
-        from tasks import generate_location_image
     data = request.get_json()
     if not data or not data.get('name') or not data.get('latitude') or not data.get('longitude'):
         return jsonify({'error': 'Missing name, latitude or longitude'}), 400
@@ -380,7 +383,9 @@ def create_location():
     db.session.add(location)
     db.session.commit()
 
-    generate_location_image.delay(location.id)
+    if image_generation_enabled():
+        from tasks import generate_location_image
+        generate_location_image.delay(location.id)
 
     return jsonify({'id': location.id, 'message': 'Location created'}), 201
 
@@ -588,11 +593,10 @@ def update_location():
               example: 2.2945
     responses:
       200:
-        description: Location processed; returns nearby location count and any image generation tasks triggered
+        description: Location processed; returns nearby location count and any image generation tasks triggered (none unless IMAGE_GENERATION_ENABLED is true)
       400:
         description: Missing lat or lng
     """
-    from tasks import generate_location_image
     data = request.get_json()
     lat = data.get('lat')
     lng = data.get('lng')
@@ -606,10 +610,12 @@ def update_location():
     ).all()
 
     triggered = []
-    for loc in nearby_locations:
-        if not any(m.media_type == 'image' for m in loc.media):
-            generate_location_image.delay(loc.id)
-            triggered.append({'id': loc.id, 'name': loc.name})
+    if image_generation_enabled():
+        from tasks import generate_location_image
+        for loc in nearby_locations:
+            if not any(m.media_type == 'image' for m in loc.media):
+                generate_location_image.delay(loc.id)
+                triggered.append({'id': loc.id, 'name': loc.name})
 
     return jsonify({
         'msg': 'Location processed',
@@ -628,6 +634,8 @@ def _serialize_commitment(c):
         'name': c.location.name,
         'latitude': c.location.latitude,
         'longitude': c.location.longitude,
+        # Stored image for the arrival screen, if one exists. Never generated here.
+        'image_url': next((m.url for m in c.location.media if m.media_type == 'image' and m.url), None),
         'status': c.status,
         'note': c.note,
         'committed_at': c.committed_at.isoformat() if c.committed_at else None,

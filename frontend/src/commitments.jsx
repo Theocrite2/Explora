@@ -144,6 +144,17 @@ export function CommitmentsProvider({ children }) {
     }
   }, [token, request])
 
+  // A position update that arrives inside the one-minute window is not sent, and a still
+  // device may not produce another update. Re-check the latest known position every minute
+  // so entering an area is never missed.
+  useEffect(() => {
+    if (!token || !hasOpen) return undefined
+    const id = setInterval(() => {
+      if (positionRef.current) checkRef.current(positionRef.current)
+    }, 60_000)
+    return () => clearInterval(id)
+  }, [token, hasOpen])
+
   // A newly created commitment gets its first distance at once, from the last known
   // position, instead of waiting for the next position update.
   useEffect(() => {

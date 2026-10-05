@@ -171,3 +171,8 @@ The API is available at `http://localhost:5000`.
 ## License
 
 MIT
+
+## Configuration notes
+
+- `UNCOVER_RADIUS_M` (default `50000`): distance in meters within which a committed place counts as reached.
+- `IMAGE_GENERATION_ENABLED` (default off): AI image generation only runs when set to `true`. The arrival screen uses stored images and never generates one.

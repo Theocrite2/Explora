@@ -4,6 +4,7 @@ import Navbar from './components/Navbar'
 import InfoSection from './components/InfoSection'
 import AuthModal from './components/AuthModal'
 import WorldMap from './components/WorldMap'
+import ArrivalLayer from './components/ArrivalLayer'
 
 export default function App() {
   const [modalMode, setModalMode] = useState(null) // null | "login" | "signup"
@@ -29,6 +30,9 @@ export default function App() {
       ) : (
         <WorldMap onExit={() => setView('landing')} onRequireLogin={openLogin} />
       )}
+
+      {/* Arrival screen: appears on any page when a committed place is reached */}
+      <ArrivalLayer />
 
       {/* Auth modal — rendered conditionally */}
       {modalMode && (
